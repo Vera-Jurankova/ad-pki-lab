@@ -24,27 +24,12 @@ jobs:
 
           $existingVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
           if ($existingVm) {
-            if ($existingVm.State -ne "Off") {
-              Stop-VM -Name $vmName -TurnOff -Force
-
-              $timeoutSeconds = 30
-              $elapsed = 0
-              do {
-                Start-Sleep -Seconds 1
-                $elapsed++
-                $existingVm = Get-VM -Name $vmName
-              } until ($existingVm.State -eq "Off" -or $elapsed -ge $timeoutSeconds)
-
-              if ($existingVm.State -ne "Off") {
-                throw "VM did not reach Off state."
-              }
-            }
-
-            Remove-VM -Name $vmName -Force
+            Write-Output "VM already exists: $vmName"
+            exit 0
           }
-
+          
           if (Test-Path $vhdPath) {
-            Remove-Item -Path $vhdPath -Force
+            throw "VHDX already exists without matching VM. Manual check required."
           }
 
           New-VHD -Path $vhdPath -SizeBytes 60GB -Dynamic | Out-Null
