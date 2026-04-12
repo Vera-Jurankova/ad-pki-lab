@@ -8,7 +8,7 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Attach ISO and start VM
+      - name: Attach ISO and boot VM
         shell: powershell
         run: |
           $vmName = "test-vm-01"
@@ -22,6 +22,12 @@ jobs:
             throw "ISO not found: $isoPath"
           }
 
+          $vm = Get-VM -Name $vmName
+
+          if ($vm.State -ne 'Off') {
+            Stop-VM -Name $vmName -TurnOff -Force
+          }
+
           $dvd = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
 
           if ($dvd) {
@@ -31,8 +37,9 @@ jobs:
             Add-VMDvdDrive -VMName $vmName -Path $isoPath
           }
 
+          Set-VMFirmware -VMName $vmName -EnableSecureBoot Off
           Set-VMFirmware -VMName $vmName -FirstBootDevice (Get-VMDvdDrive -VMName $vmName)
 
           Start-VM -Name $vmName
 
-          Write-Output "VM started with ISO attached: $vmName"
+          Write-Output "ISO attached and VM started: $vmName"
