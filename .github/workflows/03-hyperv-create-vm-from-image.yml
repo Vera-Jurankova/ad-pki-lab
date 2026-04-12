@@ -74,28 +74,66 @@ jobs:
           $unattendXml = $unattendXml -replace '^\s{10}', ''
           $unattendXml | Out-File -FilePath $tempUnattend -Encoding utf8
 
+          $assignedDriveLetter = $null
+          $mountedVhd = $null
+          $diskObj = $null
+
           try {
             $mountedVhd = Mount-VHD -Path $vhdPath -Passthru
-            Start-Sleep -Seconds 2
+            Start-Sleep -Seconds 3
 
-            $volume = $mountedVhd |
-              Get-Disk |
-              Get-Partition |
-              Get-Volume |
-              Where-Object { $_.DriveLetter } |
-              Select-Object -First 1
+            $diskObj = $mountedVhd | Get-Disk
+            $partitions = $diskObj | Get-Partition | Sort-Object PartitionNumber
 
-            if (-not $volume) {
-              throw "Mounted VHDX volume with drive letter was not found."
+            $driveLetter = $null
+
+            foreach ($partition in $partitions) {
+              if ($partition.Type -eq "Reserved") {
+                continue
+              }
+
+              $currentLetter = $partition.DriveLetter
+
+              if (-not $currentLetter) {
+                $usedLetters = (Get-Volume | Where-Object DriveLetter).DriveLetter
+                $preferredLetters = @('W','V','U','T','S','R','Q','P','O','N','M','L','K','J','I','H','G','F','E','D')
+                $freeLetter = $preferredLetters | Where-Object { $_ -notin $usedLetters } | Select-Object -First 1
+
+                if (-not $freeLetter) {
+                  throw "No free drive letter available for mounted VHDX."
+                }
+
+                $partition | Set-Partition -NewDriveLetter $freeLetter
+                $currentLetter = $freeLetter
+                $assignedDriveLetter = $freeLetter
+                Start-Sleep -Seconds 1
+              }
+
+              $candidateRoot = "$currentLetter`:"
+              $windowsPath = Join-Path $candidateRoot "Windows"
+
+              if (Test-Path $windowsPath) {
+                $driveLetter = $candidateRoot
+                break
+              }
             }
 
-            $driveLetter = "$($volume.DriveLetter):"
-            $targetPath = Join-Path $driveLetter "Windows\Panther"
+            if (-not $driveLetter) {
+              throw "Windows partition was not found inside mounted VHDX."
+            }
 
+            $targetPath = Join-Path $driveLetter "Windows\Panther"
             New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
             Copy-Item -Path $tempUnattend -Destination (Join-Path $targetPath "unattend.xml") -Force
           }
           finally {
+            if ($assignedDriveLetter -and $diskObj) {
+              $diskObj |
+                Get-Partition |
+                Where-Object DriveLetter -eq $assignedDriveLetter |
+                Remove-PartitionAccessPath -AccessPath "$assignedDriveLetter`:\" -ErrorAction SilentlyContinue
+            }
+
             if (Get-VHD -Path $vhdPath | Where-Object { $_.Attached }) {
               Dismount-VHD -Path $vhdPath
             }
