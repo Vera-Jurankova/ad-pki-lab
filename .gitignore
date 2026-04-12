@@ -1,0 +1,23 @@
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Logs
+*.log
+
+# Temp
+*.tmp
+
+# VSCode
+.vscode/
+
+# PowerShell
+*.ps1xml
+
+# OS junk
+$RECYCLE.BIN/
