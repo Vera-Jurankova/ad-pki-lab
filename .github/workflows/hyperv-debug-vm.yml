@@ -1,0 +1,35 @@
+name: debug-vm
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-vm:
+    runs-on: self-hosted
+
+    steps:
+      - name: Dump VM boot config
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $vmName = "test-vm-01"
+
+          if (-not (Get-VM -Name $vmName -ErrorAction SilentlyContinue)) {
+            throw "VM not found."
+          }
+
+          Write-Output "=== VM ==="
+          Get-VM -Name $vmName | Format-List Name, State, Generation
+
+          Write-Output "=== Firmware ==="
+          Get-VMFirmware -VMName $vmName | Format-List *
+
+          Write-Output "=== DVD ==="
+          Get-VMDvdDrive -VMName $vmName | Format-List *
+
+          Write-Output "=== HDD ==="
+          Get-VMHardDiskDrive -VMName $vmName | Format-List *
+
+          Write-Output "=== Network ==="
+          Get-VMNetworkAdapter -VMName $vmName | Format-List Name, SwitchName, MacAddress, Status
