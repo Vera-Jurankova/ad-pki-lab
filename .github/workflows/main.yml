@@ -14,6 +14,7 @@ jobs:
       - name: Who am I
         run: whoami
 
-      - name: Check Hyper-V
-        run: Get-VM
+      - name: PowerShell test
+        run: |
+          Write-Output "PowerShell OK"
         shell: powershell
