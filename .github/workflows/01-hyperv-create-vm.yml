@@ -1,4 +1,4 @@
-name: create-vm
+name: 01-hyperv-create-vm
 
 on:
   workflow_dispatch:
