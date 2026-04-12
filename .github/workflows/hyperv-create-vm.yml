@@ -25,7 +25,19 @@ jobs:
           $existingVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
           if ($existingVm) {
             if ($existingVm.State -ne "Off") {
-              Stop-VM -Name $vmName -Force
+              Stop-VM -Name $vmName -TurnOff -Force
+
+              $timeoutSeconds = 30
+              $elapsed = 0
+              do {
+                Start-Sleep -Seconds 1
+                $elapsed++
+                $existingVm = Get-VM -Name $vmName
+              } until ($existingVm.State -eq "Off" -or $elapsed -ge $timeoutSeconds)
+
+              if ($existingVm.State -ne "Off") {
+                throw "VM did not reach Off state."
+              }
             }
 
             Remove-VM -Name $vmName -Force
@@ -35,20 +47,30 @@ jobs:
             Remove-Item -Path $vhdPath -Force
           }
 
-          New-VHD -Path $vhdPath -SizeBytes 50GB -Dynamic | Out-Null
+          New-VHD -Path $vhdPath -SizeBytes 60GB -Dynamic | Out-Null
 
           New-VM `
             -Name $vmName `
             -Generation 2 `
             -MemoryStartupBytes 2GB `
-            -VHDPath $vhdPath `
-            -Path $vmPath | Out-Null
+            -Path $vmPath `
+            -NoVHD | Out-Null
+
+          Add-VMHardDiskDrive `
+            -VMName $vmName `
+            -ControllerType SCSI `
+            -ControllerNumber 0 `
+            -ControllerLocation 0 `
+            -Path $vhdPath
 
           Set-VM -Name $vmName `
             -ProcessorCount 2 `
             -CheckpointType Disabled `
             -AutomaticStopAction ShutDown
 
-          Set-VMFirmware -VMName $vmName -EnableSecureBoot Off
+          Set-VMFirmware `
+            -VMName $vmName `
+            -EnableSecureBoot On `
+            -SecureBootTemplate MicrosoftWindows
 
           Write-Output "VM ready: $vmName"
