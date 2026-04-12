@@ -56,6 +56,8 @@ jobs:
               <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
                 <OOBE>
                   <HideEULAPage>true</HideEULAPage>
+                  <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                  <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
                   <NetworkLocation>Work</NetworkLocation>
                   <ProtectYourPC>1</ProtectYourPC>
                 </OOBE>
@@ -122,9 +124,13 @@ jobs:
               throw "Windows partition was not found inside mounted VHDX."
             }
 
-            $targetPath = Join-Path $driveLetter "Windows\Panther"
-            New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
-            Copy-Item -Path $tempUnattend -Destination (Join-Path $targetPath "unattend.xml") -Force
+            $sysprepPath = Join-Path $driveLetter "Windows\System32\Sysprep"
+            New-Item -ItemType Directory -Force -Path $sysprepPath | Out-Null
+            Copy-Item -Path $tempUnattend -Destination (Join-Path $sysprepPath "unattend.xml") -Force
+
+            $pantherPath = Join-Path $driveLetter "Windows\Panther"
+            New-Item -ItemType Directory -Force -Path $pantherPath | Out-Null
+            Copy-Item -Path $tempUnattend -Destination (Join-Path $pantherPath "unattend.xml") -Force
           }
           finally {
             if ($assignedDriveLetter -and $diskObj) {
