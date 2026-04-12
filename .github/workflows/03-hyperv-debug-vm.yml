@@ -1,4 +1,4 @@
-name: debug-vm
+name: 03-hyperv-debug-vm
 
 on:
   workflow_dispatch:
