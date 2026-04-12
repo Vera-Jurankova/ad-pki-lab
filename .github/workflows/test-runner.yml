@@ -6,14 +6,6 @@ on:
 jobs:
   test:
     runs-on: self-hosted
-name: test-runner
-
-on:
-  workflow_dispatch:
-
-jobs:
-  test:
-    runs-on: self-hosted
 
     steps:
       - name: Hello test
