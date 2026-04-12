@@ -8,23 +8,23 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Hello test
+      - name: Runner sanity check
         shell: powershell
         run: |
-          Write-Output "Runner works"
+          Write-Output "Runner is operational"
 
-      - name: Show identity
+      - name: PowerShell environment check
         shell: powershell
         run: |
-          whoami
-          hostname
+          $PSVersionTable.PSVersion
 
       - name: Check Hyper-V module
         shell: powershell
         run: |
           Get-Module -ListAvailable Hyper-V | Select-Object Name, Version
 
-      - name: List VMs
+      - name: Check VM count (no names)
         shell: powershell
         run: |
-          Get-VM | Select-Object Name, State
+          $vmCount = (Get-VM).Count
+          Write-Output "VM count: $vmCount"
