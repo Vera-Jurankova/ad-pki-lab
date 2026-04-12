@@ -1,0 +1,14 @@
+name: terraform-test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - name: Check Terraform version
+        shell: powershell
+        run: |
+          terraform -v
