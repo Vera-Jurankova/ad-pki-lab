@@ -41,35 +41,48 @@ jobs:
             }
           }
 
-          $dvdDrives = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
+          $existingDvd = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
 
-          if (-not $dvdDrives) {
-            Add-VMDvdDrive -VMName $vmName -Path $isoPath | Out-Null
+          if (-not $existingDvd) {
+            Add-VMDvdDrive `
+              -VMName $vmName `
+              -ControllerNumber 0 `
+              -ControllerLocation 1 `
+              -Path $isoPath | Out-Null
           }
           else {
-            $primaryDvd = $dvdDrives | Select-Object -First 1
-            Set-VMDvdDrive -VMName $vmName -ControllerNumber $primaryDvd.ControllerNumber -ControllerLocation $primaryDvd.ControllerLocation -Path $isoPath
+            $primaryDvd = $existingDvd | Select-Object -First 1
 
-            $extraDvds = $dvdDrives | Select-Object -Skip 1
-            foreach ($extraDvd in $extraDvds) {
-              Remove-VMDvdDrive -VMName $vmName -ControllerNumber $extraDvd.ControllerNumber -ControllerLocation $extraDvd.ControllerLocation
+            Set-VMDvdDrive `
+              -VMName $vmName `
+              -ControllerNumber $primaryDvd.ControllerNumber `
+              -ControllerLocation $primaryDvd.ControllerLocation `
+              -Path $isoPath
+
+            $extraDvds = $existingDvd | Select-Object -Skip 1
+            foreach ($dvd in $extraDvds) {
+              Remove-VMDvdDrive `
+                -VMName $vmName `
+                -ControllerNumber $dvd.ControllerNumber `
+                -ControllerLocation $dvd.ControllerLocation
             }
           }
+
+          Set-VMFirmware `
+            -VMName $vmName `
+            -EnableSecureBoot On `
+            -SecureBootTemplate MicrosoftWindows
 
           $dvd = Get-VMDvdDrive -VMName $vmName | Select-Object -First 1
           $hdd = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
           $network = Get-VMNetworkAdapter -VMName $vmName | Select-Object -First 1
 
-          $bootDevices = @()
-          if ($dvd) { $bootDevices += $dvd }
-          if ($hdd) { $bootDevices += $hdd }
-          if ($network) { $bootDevices += $network }
+          $bootOrder = @()
+          if ($dvd) { $bootOrder += $dvd }
+          if ($hdd) { $bootOrder += $hdd }
+          if ($network) { $bootOrder += $network }
 
-          if ($bootDevices.Count -eq 0) {
-            throw "No boot devices found."
-          }
-
-          Set-VMFirmware -VMName $vmName -BootOrder $bootDevices
+          Set-VMFirmware -VMName $vmName -BootOrder $bootOrder
 
           Start-VM -Name $vmName | Out-Null
 
