@@ -11,22 +11,44 @@ jobs:
       - name: Create test VM
         shell: powershell
         run: |
+          $ErrorActionPreference = "Stop"
+
           $vmName = "test-vm-01"
-          $vhdPath = "C:\HyperV\VHDX\$vmName.vhdx"
+          $vmRoot = "C:\HyperV"
+          $vmPath = Join-Path $vmRoot "VMs"
+          $vhdRoot = Join-Path $vmRoot "VHDX"
+          $vhdPath = Join-Path $vhdRoot "$vmName.vhdx"
 
-          New-Item -ItemType Directory -Force -Path "C:\HyperV\VHDX" | Out-Null
-          New-Item -ItemType Directory -Force -Path "C:\HyperV\VMs" | Out-Null
+          New-Item -ItemType Directory -Force -Path $vmPath | Out-Null
+          New-Item -ItemType Directory -Force -Path $vhdRoot | Out-Null
 
-          if (-not (Test-Path $vhdPath)) {
-            New-VHD -Path $vhdPath -SizeBytes 20GB -Dynamic
+          $existingVm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+          if ($existingVm) {
+            if ($existingVm.State -ne "Off") {
+              Stop-VM -Name $vmName -Force
+            }
+
+            Remove-VM -Name $vmName -Force
           }
 
-          if (-not (Get-VM -Name $vmName -ErrorAction SilentlyContinue)) {
-            New-VM -Name $vmName `
-              -MemoryStartupBytes 1GB `
-              -VHDPath $vhdPath `
-              -Generation 2 `
-              -Path "C:\HyperV\VMs"
+          if (Test-Path $vhdPath) {
+            Remove-Item -Path $vhdPath -Force
           }
 
-          Write-Output "VM present: $vmName"
+          New-VHD -Path $vhdPath -SizeBytes 50GB -Dynamic | Out-Null
+
+          New-VM `
+            -Name $vmName `
+            -Generation 2 `
+            -MemoryStartupBytes 2GB `
+            -VHDPath $vhdPath `
+            -Path $vmPath | Out-Null
+
+          Set-VM -Name $vmName `
+            -ProcessorCount 2 `
+            -CheckpointType Disabled `
+            -AutomaticStopAction ShutDown
+
+          Set-VMFirmware -VMName $vmName -EnableSecureBoot Off
+
+          Write-Output "VM ready: $vmName"
