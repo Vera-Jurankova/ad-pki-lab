@@ -1,0 +1,38 @@
+name: attach-iso-and-boot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  attach-iso-and-boot:
+    runs-on: self-hosted
+
+    steps:
+      - name: Attach ISO and start VM
+        shell: powershell
+        run: |
+          $vmName = "test-vm-01"
+          $isoPath = "C:\HyperV\ISOs\Win2022srvEval.iso"
+
+          if (-not (Get-VM -Name $vmName -ErrorAction SilentlyContinue)) {
+            throw "VM not found: $vmName"
+          }
+
+          if (-not (Test-Path $isoPath)) {
+            throw "ISO not found: $isoPath"
+          }
+
+          $dvd = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
+
+          if ($dvd) {
+            Set-VMDvdDrive -VMName $vmName -Path $isoPath
+          }
+          else {
+            Add-VMDvdDrive -VMName $vmName -Path $isoPath
+          }
+
+          Set-VMFirmware -VMName $vmName -FirstBootDevice (Get-VMDvdDrive -VMName $vmName)
+
+          Start-VM -Name $vmName
+
+          Write-Output "VM started with ISO attached: $vmName"
