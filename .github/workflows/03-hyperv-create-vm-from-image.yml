@@ -7,9 +7,6 @@ jobs:
   create-vm-from-image:
     runs-on: self-hosted
 
-    env:
-      VM_LOCAL_ADMIN_PASSWORD: ${{ secrets.VM_LOCAL_ADMIN_PASSWORD }}
-
     steps:
       - name: Create VM from silver image
         shell: powershell
@@ -23,7 +20,6 @@ jobs:
           $imagePath = "C:\HyperV\images\win2022-base-silver.vhdx"
           $vhdPath = Join-Path $vhdRoot "$vmName.vhdx"
           $switchName = "Default Switch"
-          $tempUnattend = "C:\HyperV\temp-unattend.xml"
 
           New-Item -ItemType Directory -Force -Path $vmPath | Out-Null
           New-Item -ItemType Directory -Force -Path $vhdRoot | Out-Null
@@ -42,112 +38,7 @@ jobs:
             throw "Target VHDX already exists without matching VM: $vhdPath"
           }
 
-          $adminPassword = $env:VM_LOCAL_ADMIN_PASSWORD
-          if ([string]::IsNullOrWhiteSpace($adminPassword)) {
-            throw "GitHub secret VM_LOCAL_ADMIN_PASSWORD is empty or missing."
-          }
-
           Copy-Item -Path $imagePath -Destination $vhdPath -Force
-
-          $unattendXml = @"
-          <?xml version="1.0" encoding="utf-8"?>
-          <unattend xmlns="urn:schemas-microsoft-com:unattend">
-            <settings pass="oobeSystem">
-              <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-                <OOBE>
-                  <HideEULAPage>true</HideEULAPage>
-                  <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
-                  <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
-                  <NetworkLocation>Work</NetworkLocation>
-                  <ProtectYourPC>1</ProtectYourPC>
-                </OOBE>
-                <UserAccounts>
-                  <AdministratorPassword>
-                    <Value>$adminPassword</Value>
-                    <PlainText>true</PlainText>
-                  </AdministratorPassword>
-                </UserAccounts>
-                <TimeZone>Central Europe Standard Time</TimeZone>
-              </component>
-            </settings>
-          </unattend>
-          "@
-
-          $unattendXml = $unattendXml -replace '^\s{10}', ''
-          $unattendXml | Out-File -FilePath $tempUnattend -Encoding utf8
-
-          $assignedDriveLetter = $null
-          $mountedVhd = $null
-          $diskObj = $null
-
-          try {
-            $mountedVhd = Mount-VHD -Path $vhdPath -Passthru
-            Start-Sleep -Seconds 3
-
-            $diskObj = $mountedVhd | Get-Disk
-            $partitions = $diskObj | Get-Partition | Sort-Object PartitionNumber
-
-            $driveLetter = $null
-
-            foreach ($partition in $partitions) {
-              if ($partition.Type -eq "Reserved") {
-                continue
-              }
-
-              $currentLetter = $partition.DriveLetter
-
-              if (-not $currentLetter) {
-                $usedLetters = (Get-Volume | Where-Object DriveLetter).DriveLetter
-                $preferredLetters = @('W','V','U','T','S','R','Q','P','O','N','M','L','K','J','I','H','G','F','E','D')
-                $freeLetter = $preferredLetters | Where-Object { $_ -notin $usedLetters } | Select-Object -First 1
-
-                if (-not $freeLetter) {
-                  throw "No free drive letter available for mounted VHDX."
-                }
-
-                $partition | Set-Partition -NewDriveLetter $freeLetter
-                $currentLetter = $freeLetter
-                $assignedDriveLetter = $freeLetter
-                Start-Sleep -Seconds 1
-              }
-
-              $candidateRoot = "$currentLetter`:"
-              $windowsPath = Join-Path $candidateRoot "Windows"
-
-              if (Test-Path $windowsPath) {
-                $driveLetter = $candidateRoot
-                break
-              }
-            }
-
-            if (-not $driveLetter) {
-              throw "Windows partition was not found inside mounted VHDX."
-            }
-
-            $sysprepPath = Join-Path $driveLetter "Windows\System32\Sysprep"
-            New-Item -ItemType Directory -Force -Path $sysprepPath | Out-Null
-            Copy-Item -Path $tempUnattend -Destination (Join-Path $sysprepPath "unattend.xml") -Force
-
-            $pantherPath = Join-Path $driveLetter "Windows\Panther"
-            New-Item -ItemType Directory -Force -Path $pantherPath | Out-Null
-            Copy-Item -Path $tempUnattend -Destination (Join-Path $pantherPath "unattend.xml") -Force
-          }
-          finally {
-            if ($assignedDriveLetter -and $diskObj) {
-              $diskObj |
-                Get-Partition |
-                Where-Object DriveLetter -eq $assignedDriveLetter |
-                Remove-PartitionAccessPath -AccessPath "$assignedDriveLetter`:\" -ErrorAction SilentlyContinue
-            }
-
-            if (Get-VHD -Path $vhdPath | Where-Object { $_.Attached }) {
-              Dismount-VHD -Path $vhdPath
-            }
-
-            if (Test-Path $tempUnattend) {
-              Remove-Item -Path $tempUnattend -Force
-            }
-          }
 
           New-VM `
             -Name $vmName `
@@ -164,7 +55,9 @@ jobs:
             -Path $vhdPath | Out-Null
 
           $disk = Get-VMHardDiskDrive -VMName $vmName
-          Set-VMFirmware -VMName $vmName -FirstBootDevice $disk
+          Set-VMFirmware `
+            -VMName $vmName `
+            -FirstBootDevice $disk
 
           Connect-VMNetworkAdapter `
             -VMName $vmName `
@@ -178,4 +71,4 @@ jobs:
 
           Start-VM -Name $vmName | Out-Null
 
-          Write-Output "VM deployed fully automated: $vmName"
+          Write-Output "VM deployed from image: $vmName"
