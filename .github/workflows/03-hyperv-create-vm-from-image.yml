@@ -11,7 +11,7 @@ jobs:
       VM_LOCAL_ADMIN_PASSWORD: ${{ secrets.VM_LOCAL_ADMIN_PASSWORD }}
 
     steps:
-      - name: Create VM from silver image (fully automated)
+      - name: Create VM from silver image
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
@@ -23,6 +23,7 @@ jobs:
           $imagePath = "C:\HyperV\images\win2022-base-silver.vhdx"
           $vhdPath = Join-Path $vhdRoot "$vmName.vhdx"
           $switchName = "Default Switch"
+          $tempUnattend = "C:\HyperV\temp-unattend.xml"
 
           New-Item -ItemType Directory -Force -Path $vmPath | Out-Null
           New-Item -ItemType Directory -Force -Path $vhdRoot | Out-Null
@@ -41,52 +42,69 @@ jobs:
             throw "Target VHDX already exists without matching VM: $vhdPath"
           }
 
-          # copy base image
+          $adminPassword = $env:VM_LOCAL_ADMIN_PASSWORD
+          if ([string]::IsNullOrWhiteSpace($adminPassword)) {
+            throw "GitHub secret VM_LOCAL_ADMIN_PASSWORD is empty or missing."
+          }
+
           Copy-Item -Path $imagePath -Destination $vhdPath -Force
 
-          # generate unattend.xml from secret
-          $adminPassword = $env:VM_LOCAL_ADMIN_PASSWORD
-
           $unattendXml = @"
-<?xml version="1.0" encoding="utf-8"?>
-<unattend xmlns="urn:schemas-microsoft-com:unattend">
-  <settings pass="oobeSystem">
-    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-      <OOBE>
-        <HideEULAPage>true</HideEULAPage>
-        <NetworkLocation>Work</NetworkLocation>
-        <ProtectYourPC>1</ProtectYourPC>
-      </OOBE>
-      <UserAccounts>
-        <AdministratorPassword>
-          <Value>$adminPassword</Value>
-          <PlainText>true</PlainText>
-        </AdministratorPassword>
-      </UserAccounts>
-      <TimeZone>Central Europe Standard Time</TimeZone>
-    </component>
-  </settings>
-</unattend>
-"@
+          <?xml version="1.0" encoding="utf-8"?>
+          <unattend xmlns="urn:schemas-microsoft-com:unattend">
+            <settings pass="oobeSystem">
+              <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+                <OOBE>
+                  <HideEULAPage>true</HideEULAPage>
+                  <NetworkLocation>Work</NetworkLocation>
+                  <ProtectYourPC>1</ProtectYourPC>
+                </OOBE>
+                <UserAccounts>
+                  <AdministratorPassword>
+                    <Value>$adminPassword</Value>
+                    <PlainText>true</PlainText>
+                  </AdministratorPassword>
+                </UserAccounts>
+                <TimeZone>Central Europe Standard Time</TimeZone>
+              </component>
+            </settings>
+          </unattend>
+          "@
 
-          $tempUnattend = "C:\HyperV\temp-unattend.xml"
+          $unattendXml = $unattendXml -replace '^\s{10}', ''
           $unattendXml | Out-File -FilePath $tempUnattend -Encoding utf8
 
-          # mount VHDX
-          $disk = Mount-VHD -Path $vhdPath -Passthru
-          Start-Sleep -Seconds 2
+          try {
+            $mountedVhd = Mount-VHD -Path $vhdPath -Passthru
+            Start-Sleep -Seconds 2
 
-          $volume = ($disk | Get-Disk | Get-Partition | Get-Volume | Where-Object DriveLetter)[0]
-          $driveLetter = $volume.DriveLetter + ":"
+            $volume = $mountedVhd |
+              Get-Disk |
+              Get-Partition |
+              Get-Volume |
+              Where-Object { $_.DriveLetter } |
+              Select-Object -First 1
 
-          $targetPath = Join-Path $driveLetter "Windows\Panther"
-          New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
+            if (-not $volume) {
+              throw "Mounted VHDX volume with drive letter was not found."
+            }
 
-          Copy-Item -Path $tempUnattend -Destination (Join-Path $targetPath "unattend.xml") -Force
+            $driveLetter = "$($volume.DriveLetter):"
+            $targetPath = Join-Path $driveLetter "Windows\Panther"
 
-          Dismount-VHD -Path $vhdPath
+            New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
+            Copy-Item -Path $tempUnattend -Destination (Join-Path $targetPath "unattend.xml") -Force
+          }
+          finally {
+            if (Get-VHD -Path $vhdPath | Where-Object { $_.Attached }) {
+              Dismount-VHD -Path $vhdPath
+            }
 
-          # create VM
+            if (Test-Path $tempUnattend) {
+              Remove-Item -Path $tempUnattend -Force
+            }
+          }
+
           New-VM `
             -Name $vmName `
             -Generation 2 `
@@ -101,7 +119,6 @@ jobs:
             -ControllerLocation 0 `
             -Path $vhdPath | Out-Null
 
-          # fix boot order
           $disk = Get-VMHardDiskDrive -VMName $vmName
           Set-VMFirmware -VMName $vmName -FirstBootDevice $disk
 
@@ -112,7 +129,7 @@ jobs:
           Set-VM `
             -Name $vmName `
             -ProcessorCount 2 `
-            -CheckpointType Disabled `
+            -CheckpointType Standard `
             -AutomaticStopAction ShutDown
 
           Start-VM -Name $vmName | Out-Null
