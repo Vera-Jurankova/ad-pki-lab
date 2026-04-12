@@ -11,35 +11,66 @@ jobs:
       - name: Attach ISO and boot VM
         shell: powershell
         run: |
+          $ErrorActionPreference = "Stop"
+
           $vmName = "test-vm-01"
           $isoPath = "C:\HyperV\ISOs\Win2022srvEval.iso"
 
-          if (-not (Get-VM -Name $vmName -ErrorAction SilentlyContinue)) {
-            throw "VM not found: $vmName"
+          $vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+          if (-not $vm) {
+            throw "VM not found."
           }
 
           if (-not (Test-Path $isoPath)) {
-            throw "ISO not found: $isoPath"
+            throw "ISO not found."
           }
 
-          $vm = Get-VM -Name $vmName
-
-          if ($vm.State -ne 'Off') {
+          if ($vm.State -ne "Off") {
             Stop-VM -Name $vmName -TurnOff -Force
+
+            $timeoutSeconds = 30
+            $elapsed = 0
+            do {
+              Start-Sleep -Seconds 1
+              $elapsed++
+              $vm = Get-VM -Name $vmName
+            } until ($vm.State -eq "Off" -or $elapsed -ge $timeoutSeconds)
+
+            if ($vm.State -ne "Off") {
+              throw "VM did not reach Off state."
+            }
           }
 
-          $dvd = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
+          $dvdDrives = Get-VMDvdDrive -VMName $vmName -ErrorAction SilentlyContinue
 
-          if ($dvd) {
-            Set-VMDvdDrive -VMName $vmName -Path $isoPath
+          if (-not $dvdDrives) {
+            Add-VMDvdDrive -VMName $vmName -Path $isoPath | Out-Null
           }
           else {
-            Add-VMDvdDrive -VMName $vmName -Path $isoPath
+            $primaryDvd = $dvdDrives | Select-Object -First 1
+            Set-VMDvdDrive -VMName $vmName -ControllerNumber $primaryDvd.ControllerNumber -ControllerLocation $primaryDvd.ControllerLocation -Path $isoPath
+
+            $extraDvds = $dvdDrives | Select-Object -Skip 1
+            foreach ($extraDvd in $extraDvds) {
+              Remove-VMDvdDrive -VMName $vmName -ControllerNumber $extraDvd.ControllerNumber -ControllerLocation $extraDvd.ControllerLocation
+            }
           }
 
-          Set-VMFirmware -VMName $vmName -EnableSecureBoot Off
-          Set-VMFirmware -VMName $vmName -FirstBootDevice (Get-VMDvdDrive -VMName $vmName)
+          $dvd = Get-VMDvdDrive -VMName $vmName | Select-Object -First 1
+          $hdd = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
+          $network = Get-VMNetworkAdapter -VMName $vmName | Select-Object -First 1
 
-          Start-VM -Name $vmName
+          $bootDevices = @()
+          if ($dvd) { $bootDevices += $dvd }
+          if ($hdd) { $bootDevices += $hdd }
+          if ($network) { $bootDevices += $network }
 
-          Write-Output "ISO attached and VM started: $vmName"
+          if ($bootDevices.Count -eq 0) {
+            throw "No boot devices found."
+          }
+
+          Set-VMFirmware -VMName $vmName -BootOrder $bootDevices
+
+          Start-VM -Name $vmName | Out-Null
+
+          Write-Output "ISO attached and VM started."
