@@ -1,0 +1,38 @@
+name: test-runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+name: test-runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - name: Hello test
+        shell: powershell
+        run: |
+          Write-Output "Runner works"
+
+      - name: Show identity
+        shell: powershell
+        run: |
+          whoami
+          hostname
+
+      - name: Check Hyper-V module
+        shell: powershell
+        run: |
+          Get-Module -ListAvailable Hyper-V | Select-Object Name, Version
+
+      - name: List VMs
+        shell: powershell
+        run: |
+          Get-VM | Select-Object Name, State
