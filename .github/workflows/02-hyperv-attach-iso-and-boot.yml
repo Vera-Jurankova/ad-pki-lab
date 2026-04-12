@@ -1,4 +1,4 @@
-name: attach-iso-and-boot
+name: 02-hyperv-attach-iso-and-boot
 
 on:
   workflow_dispatch:
