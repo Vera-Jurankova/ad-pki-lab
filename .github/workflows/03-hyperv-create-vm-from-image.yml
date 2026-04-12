@@ -1,4 +1,4 @@
-name: 04-hyperv-create-vm-from-image
+name: 03-hyperv-create-vm-from-image
 
 on:
   workflow_dispatch:
