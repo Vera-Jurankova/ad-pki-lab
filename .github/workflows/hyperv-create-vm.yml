@@ -1,0 +1,32 @@
+name: create-vm
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-vm:
+    runs-on: self-hosted
+
+    steps:
+      - name: Create test VM
+        shell: powershell
+        run: |
+          $vmName = "test-vm-01"
+          $vhdPath = "C:\HyperV\VHDX\$vmName.vhdx"
+
+          New-Item -ItemType Directory -Force -Path "C:\HyperV\VHDX" | Out-Null
+          New-Item -ItemType Directory -Force -Path "C:\HyperV\VMs" | Out-Null
+
+          if (-not (Test-Path $vhdPath)) {
+            New-VHD -Path $vhdPath -SizeBytes 20GB -Dynamic
+          }
+
+          if (-not (Get-VM -Name $vmName -ErrorAction SilentlyContinue)) {
+            New-VM -Name $vmName `
+              -MemoryStartupBytes 1GB `
+              -VHDPath $vhdPath `
+              -Generation 2 `
+              -Path "C:\HyperV\VMs"
+          }
+
+          Write-Output "VM present: $vmName"
