@@ -12,7 +12,8 @@ Automated Active Directory / PKI lab built with:
 - No manual interaction (zero-click deployment)
 
 ## Next steps
+- AD DS
 - Domain join automation
-- AD DS + PKI deployment
+- PKI deployment
 - Baseline hardening
 - Terraform integration
