@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy VM and set hostname
-        shell: pwsh
+        shell: powershell
         env:
           LAB_LOCAL_ADMIN_PASSWORD: ${{ secrets.LAB_LOCAL_ADMIN_PASSWORD }}
         run: |
