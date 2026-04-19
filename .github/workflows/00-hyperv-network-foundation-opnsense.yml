@@ -1,0 +1,72 @@
+name: 00 - Hyper-V Network Foundation (OPNsense)
+
+on:
+  workflow_dispatch:
+    inputs:
+      vmName:
+        description: "OPNsense VM name"
+        required: true
+        default: "opnsense"
+        type: string
+      isoPath:
+        description: "Absolute ISO path on runner"
+        required: true
+        default: "C:\\HyperV\\ISOs\\OPNsense-26.1.2-dvd-amd64.iso"
+        type: string
+      wanSwitchName:
+        description: "WAN switch (internet)"
+        required: true
+        default: "Default Switch"
+        type: string
+      lanTrunkSwitchName:
+        description: "Internal trunk switch"
+        required: true
+        default: "LAB-TRUNK"
+        type: string
+      allowedVlans:
+        description: "Comma-separated allowed VLAN IDs"
+        required: true
+        default: "10,20,30"
+        type: string
+      cpu:
+        description: "vCPU count"
+        required: true
+        default: "2"
+        type: string
+      ramGb:
+        description: "Startup RAM in GB"
+        required: true
+        default: "4"
+        type: string
+      vhdSizeGb:
+        description: "Disk size in GB"
+        required: true
+        default: "20"
+        type: string
+      startVm:
+        description: "Start VM after setup"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  network-foundation:
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create OPNsense VM and network foundation
+        shell: powershell
+        run: |
+          ./scripts/New-OPNsenseFoundation.ps1 `
+            -VmName "${{ inputs.vmName }}" `
+            -IsoPath "${{ inputs.isoPath }}" `
+            -WanSwitchName "${{ inputs.wanSwitchName }}" `
+            -LanTrunkSwitchName "${{ inputs.lanTrunkSwitchName }}" `
+            -AllowedVlans "${{ inputs.allowedVlans }}" `
+            -CpuCount ([int]"${{ inputs.cpu }}") `
+            -MemoryStartupGB ([int]"${{ inputs.ramGb }}") `
+            -VhdSizeGB ([int]"${{ inputs.vhdSizeGb }}") `
+            -StartVm:${{ inputs.startVm }}
