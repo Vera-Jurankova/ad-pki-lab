@@ -10,12 +10,12 @@ on:
       cpu:
         description: "vCPU count"
         required: true
-        default: "2"
+        default: "1"
         type: string
       ramGb:
         description: "Startup RAM in GB"
         required: true
-        default: "4"
+        default: "2"
         type: string
       hostname:
         description: "Guest hostname override (optional)"
