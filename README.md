@@ -15,13 +15,13 @@ Automated Active Directory / PKI lab built with:
 * Fully automated VM provisioning (\~40 seconds)
 * No manual interaction (zero-click deployment)
 
-\## Hyper-V deployment workflow
+## Hyper-V deployment workflow
 
 `03 - Deploy Hyper-V VM` is parameterized and supports hostname automation in one run.
 
 
 
-\### Workflow inputs
+### Workflow inputs
 
 \- `vmName` (required): VM name in Hyper-V
 
@@ -33,7 +33,7 @@ Automated Active Directory / PKI lab built with:
 
 
 
-\### Runtime behavior
+### Runtime behavior
 
 \- Idempotent: if VM exists, it is reused (no delete/recreate)
 
@@ -43,7 +43,7 @@ Automated Active Directory / PKI lab built with:
 
 
 
-\### Secret required
+### Secret required
 
 \- `LAB\_LOCAL\_ADMIN\_PASSWORD`: local Administrator password inside the guest image
 
