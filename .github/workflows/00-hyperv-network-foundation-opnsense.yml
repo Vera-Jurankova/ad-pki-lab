@@ -48,6 +48,11 @@ on:
         required: true
         default: true
         type: boolean
+      detachIsoOnExistingVm:
+        description: "Detach ISO on re-runs (use after installer completed)"
+        required: true
+        default: true
+        type: boolean
 
 jobs:
   network-foundation:
@@ -70,6 +75,7 @@ jobs:
             MemoryStartupGB    = [int]"${{ inputs.ramGb }}"
             VhdSizeGB          = [int]"${{ inputs.vhdSizeGb }}"
             StartVm            = [System.Convert]::ToBoolean("${{ inputs.startVm }}")
+            DetachIsoOnExistingVm = [System.Convert]::ToBoolean("${{ inputs.detachIsoOnExistingVm }}")
           }
 
           ./scripts/New-OPNsenseFoundation.ps1 @params
