@@ -37,7 +37,10 @@ param(
   [string]$AllowedVlans = '10,20,30',
 
   [Parameter()]
-  [bool]$StartVm = $true
+  [bool]$StartVm = $true,
+
+  [Parameter()]
+  [bool]$DetachIsoOnExistingVm = $true
 )
 
 Set-StrictMode -Version Latest
@@ -72,7 +75,9 @@ New-Item -ItemType Directory -Path $VhdRootPath -Force | Out-Null
 New-Item -ItemType Directory -Path $vmPath -Force | Out-Null
 
 $vm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
+$createdVm = $false
 if ($null -eq $vm) {
+  $createdVm = $true
   if (Test-Path -LiteralPath $vhdPath) {
     throw "Disk already exists without VM: $vhdPath"
   }
@@ -115,7 +120,13 @@ if ($null -eq $dvd) {
   Add-VMDvdDrive -VMName $VmName -ControllerNumber 0 -ControllerLocation 1 -Path $IsoPath | Out-Null
 }
 else {
-  Set-VMDvdDrive -VMName $VmName -ControllerNumber $dvd.ControllerNumber -ControllerLocation $dvd.ControllerLocation -Path $IsoPath
+  if ((-not $createdVm) -and $DetachIsoOnExistingVm) {
+    Set-VMDvdDrive -VMName $VmName -ControllerNumber $dvd.ControllerNumber -ControllerLocation $dvd.ControllerLocation -Path $null
+    Write-Host "[INFO] Detached ISO from existing VM '$VmName'."
+  }
+  else {
+    Set-VMDvdDrive -VMName $VmName -ControllerNumber $dvd.ControllerNumber -ControllerLocation $dvd.ControllerLocation -Path $IsoPath
+  }
 }
 
 Set-VM -Name $VmName -ProcessorCount $CpuCount -MemoryStartupBytes $memoryBytes -CheckpointType Disabled -AutomaticStopAction ShutDown | Out-Null
@@ -124,7 +135,12 @@ Set-VMFirmware -VMName $VmName -EnableSecureBoot Off
 $dvdBoot = Get-VMDvdDrive -VMName $VmName | Select-Object -First 1
 $diskBoot = Get-VMHardDiskDrive -VMName $VmName | Select-Object -First 1
 if ($dvdBoot -and $diskBoot) {
-  Set-VMFirmware -VMName $VmName -BootOrder @($dvdBoot, $diskBoot)
+  if ($createdVm) {
+    Set-VMFirmware -VMName $VmName -BootOrder @($dvdBoot, $diskBoot)
+  }
+  else {
+    Set-VMFirmware -VMName $VmName -BootOrder @($diskBoot, $dvdBoot)
+  }
 }
 
 if ($StartVm) {
@@ -136,3 +152,9 @@ if ($StartVm) {
 
 Write-Host "[INFO] OPNsense foundation ready for VM '$VmName'."
 Write-Host "[INFO] WAN switch: $WanSwitchName | LAN trunk switch: $LanTrunkSwitchName | VLANs: $AllowedVlans"
+if ($createdVm) {
+  Write-Host "[INFO] First boot uses ISO installer. After installation, rerun this workflow to prioritize disk boot."
+}
+elseif ($DetachIsoOnExistingVm) {
+  Write-Host "[INFO] Existing VM re-run detached ISO and prioritized disk boot."
+}
