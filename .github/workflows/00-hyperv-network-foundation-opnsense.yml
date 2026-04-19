@@ -69,4 +69,6 @@ jobs:
             -CpuCount ([int]"${{ inputs.cpu }}") `
             -MemoryStartupGB ([int]"${{ inputs.ramGb }}") `
             -VhdSizeGB ([int]"${{ inputs.vhdSizeGb }}") `
-            -StartVm:${{ inputs.startVm }}
+            $startVm = "${{ inputs.startVm }}" -eq "true"
+            ...
+            -StartVm $startVm
