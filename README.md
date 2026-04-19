@@ -25,9 +25,9 @@ Automated Active Directory / PKI lab built with:
 
 \- `vmName` (required): VM name in Hyper-V
 
-\- `cpu` (default `2`): vCPU count
+\- `cpu` (default `1`): vCPU count
 
-\- `ramGb` (default `4`): startup RAM in GB
+\- `ramGb` (default `2`): startup RAM in GB
 
 \- `hostname` (optional): guest hostname override (defaults to `vmName`)
 
@@ -38,8 +38,6 @@ Automated Active Directory / PKI lab built with:
 \- Idempotent: if VM exists, it is reused (no delete/recreate)
 
 \- Non-destructive updates: applies CPU/RAM updates and starts VM if needed
-
-\- Hostname automation: uses PowerShell Direct after boot and renames guest if needed
 
 
 
