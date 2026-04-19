@@ -37,7 +37,7 @@ param(
   [string]$AllowedVlans = '10,20,30',
 
   [Parameter()]
-  [switch]$StartVm
+  [bool]$StartVm = $true
 )
 
 Set-StrictMode -Version Latest
@@ -127,7 +127,7 @@ if ($dvdBoot -and $diskBoot) {
   Set-VMFirmware -VMName $VmName -BootOrder @($dvdBoot, $diskBoot)
 }
 
-if ($StartVm.IsPresent) {
+if ($StartVm) {
   $state = (Get-VM -Name $VmName).State
   if ($state -ne 'Running') {
     Start-VM -Name $VmName | Out-Null
