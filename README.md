@@ -45,7 +45,7 @@ Automated Active Directory / PKI lab built with:
 
 ### Secret required
 
-\- `LAB\_LOCAL\_ADMIN\_PASSWORD`: local Administrator password inside the guest image
+\- `LAB_LOCAL_ADMIN_PASSWORD`: local Administrator password inside the guest image
 
 
 
