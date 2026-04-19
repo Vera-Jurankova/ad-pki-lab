@@ -1,4 +1,4 @@
-name: 00-Hyper-V Network Foundation (OPNsense)
+name: 00 - Hyper-V Network Foundation (OPNsense)
 
 on:
   workflow_dispatch:
@@ -60,8 +60,6 @@ jobs:
       - name: Create OPNsense VM and network foundation
         shell: powershell
         run: |
-          $startVm = [System.Convert]::ToBoolean("${{ inputs.startVm }}")
-
           $params = @{
             VmName             = "${{ inputs.vmName }}"
             IsoPath            = "${{ inputs.isoPath }}"
@@ -71,7 +69,7 @@ jobs:
             CpuCount           = [int]"${{ inputs.cpu }}"
             MemoryStartupGB    = [int]"${{ inputs.ramGb }}"
             VhdSizeGB          = [int]"${{ inputs.vhdSizeGb }}"
-            StartVm            = $startVm
+            StartVm            = [System.Convert]::ToBoolean("${{ inputs.startVm }}")
           }
 
           ./scripts/New-OPNsenseFoundation.ps1 @params
