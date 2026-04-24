@@ -12,7 +12,7 @@ Automated Active Directory / PKI lab built with:
 
 ## Current state
 
-* Fully automated VM provisioning (\~40 seconds)
+* Fully automated VM provisioning
 * No manual interaction (zero-click deployment)
 
 ## Hyper-V deployment workflow
